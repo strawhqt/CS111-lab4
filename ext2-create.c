@@ -283,18 +283,30 @@ void write_block_bitmap(int fd)
 	}
 
 	// TODO It's all yours
-	u8 map_value[BLOCK_SIZE];
+	u8 map_value[BLOCK_SIZE] = {0};
 
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 2; i++) {
 		u8 mask = 1;
 		for (int count = 0; count < 8; count++) {
 			map_value[i] = map_value[i] | mask;
 			mask <<= 1;
 		}
 	}
-	for (int i = 3; i < BLOCK_SIZE / 8; i++) {
-		map_value[i] = 0;
+	u8 mask2 = 1;
+	for (int count = 0; count < 7; count++) {
+		map_value[2] = map_value[2] | mask2;
+		mask2 <<= 1;
 	}
+	map_value[127] = 1 << 7;
+
+	for (int i = 128; i < BLOCK_SIZE; i++) {
+		u8 mask3 = 1;
+		for (int count = 0; count < 8; count++) {
+			map_value[i] = map_value[i] | mask3;
+			mask3 <<= 1;
+		}
+	}
+	
 
 	if (write(fd, map_value, BLOCK_SIZE) != BLOCK_SIZE)
 	{
@@ -406,7 +418,7 @@ void write_inode_table(int fd) {
 	hello_world_inode.i_dtime = 0;
 	hello_world_inode.i_gid = 1000;
 	hello_world_inode.i_links_count = 1;
-	hello_world_inode.i_blocks = 1;
+	hello_world_inode.i_blocks = 2;
 	hello_world_inode.i_block[0] = HELLO_WORLD_FILE_BLOCKNO;
 	write_inode(fd, HELLO_WORLD_INO, &hello_world_inode);
 
@@ -424,8 +436,8 @@ void write_inode_table(int fd) {
 	hello_inode.i_dtime = 0;
 	hello_inode.i_gid = 1000;
 	hello_inode.i_links_count = 1;
-	hello_inode.i_blocks = 1;
-	hello_inode.i_block[0] = HELLO_WORLD_FILE_BLOCKNO;
+	hello_inode.i_blocks = 2;
+	hello_inode.i_block[0] = "hello-world";
 	write_inode(fd, HELLO_INO, &hello_inode);
 
 
@@ -434,6 +446,41 @@ void write_inode_table(int fd) {
 void write_root_dir_block(int fd)
 {
 	// TODO It's all yours
+	off_t off = BLOCK_OFFSET(ROOT_DIR_BLOCKNO);
+	off = lseek(fd, off, SEEK_SET);
+	if (off == -1) {
+		errno_exit("lseek");
+	}
+
+	ssize_t bytes_remaining = BLOCK_SIZE;
+
+	struct ext2_dir_entry current_entry = {0};
+	dir_entry_set(current_entry, EXT2_ROOT_INO, ".");
+	dir_entry_write(current_entry, fd);
+
+	bytes_remaining -= current_entry.rec_len;
+
+	struct ext2_dir_entry parent_entry = {0};
+	dir_entry_set(parent_entry, EXT2_BAD_INO, "..");
+	dir_entry_write(parent_entry, fd);
+
+	bytes_remaining -= parent_entry.rec_len;
+
+	struct ext2_dir_entry hello_world_entry = {0};
+	dir_entry_set(hello_world_entry, HELLO_WORLD_INO, "hello-world");
+	dir_entry_write(hello_world_entry, fd);
+
+	bytes_remaining -= hello_world_entry.rec_len;
+
+	struct ext2_dir_entry hello_entry = {0};
+	dir_entry_set(hello_entry, HELLO_INO, "hello-world");
+	dir_entry_write(hello_entry, fd);
+
+	bytes_remaining -= hello_entry.rec_len;
+
+	struct ext2_dir_entry fill_entry = {0};
+	fill_entry.rec_len = bytes_remaining;
+	dir_entry_write(fill_entry, fd);
 }
 
 void write_lost_and_found_dir_block(int fd) {
@@ -465,6 +512,15 @@ void write_lost_and_found_dir_block(int fd) {
 void write_hello_world_file_block(int fd)
 {
 	// TODO It's all yours
+	off_t off = BLOCK_OFFSET(HELLO_WORLD_INO);
+	off = lseek(fd, off, SEEK_SET);
+	if (off == -1) {
+		errno_exit("lseek");
+	}
+	char* s = "hello-world";
+	if(write(fd, s, strlen(s) != strlen(s))) {
+		errno_exit("write");
+	}	
 }
 
 int main(int argc, char *argv[]) {
