@@ -335,7 +335,7 @@ void write_inode_bitmap(int fd)
 		mask2 <<= 1;
 	}
 
-	for(int i = BLOCK_SIZE / 8; i < BLOCK_SIZE; i++) {
+	for(int i = 16; i < BLOCK_SIZE; i++) {
 		u8 mask3 = 1;
 		for(int count = 0; count < 8; count++) {
 			map_value[i] = map_value[i] | mask3;
@@ -476,6 +476,8 @@ void write_root_dir_block(int fd)
 	struct ext2_dir_entry lost_and_found_entry = {0};
 	dir_entry_set(lost_and_found_entry, LOST_AND_FOUND_INO, "lost+found");
 	dir_entry_write(lost_and_found_entry, fd);
+
+	bytes_remaining -= lost_and_found_entry.rec_len;
 
 	struct ext2_dir_entry hello_world_entry = {0};
 	dir_entry_set(hello_world_entry, HELLO_WORLD_INO, "hello-world");
