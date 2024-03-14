@@ -224,8 +224,6 @@ void write_superblock(int fd) {
 	superblock.s_def_resuid        = 0; /* root */
 	superblock.s_def_resgid        = 0; /* root */
 
-	/* You can leave everything below this line the same, delete this
-	   comment when you're done the lab */
 	superblock.s_uuid[0] = 0x5A;
 	superblock.s_uuid[1] = 0x1E;
 	superblock.s_uuid[2] = 0xAB;
@@ -292,14 +290,15 @@ void write_block_bitmap(int fd)
 			mask <<= 1;
 		}
 	}
+
 	u8 mask2 = 1;
 	for (int count = 0; count < 7; count++) {
 		map_value[2] = map_value[2] | mask2;
 		mask2 <<= 1;
 	}
-	map_value[127] = 1 << 7;
+	map_value[BLOCK_SIZE / 8 - 1] = mask2;
 
-	for (int i = 128; i < BLOCK_SIZE; i++) {
+	for (int i = BLOCK_SIZE / 8; i < BLOCK_SIZE; i++) {
 		u8 mask3 = 1;
 		for (int count = 0; count < 8; count++) {
 			map_value[i] = map_value[i] | mask3;
@@ -326,14 +325,22 @@ void write_inode_bitmap(int fd)
 	u8 map_value[BLOCK_SIZE] = {0};
 
 	u8 mask1 = 1;
-	for(int count = 0; count < 8; count++) {
+	for (int count = 0; count < 8; count++) {
 		map_value[0] = map_value[0] | mask1;
 		mask1 <<= 1;
 	}
 	u8 mask2 = 1;
-	for(int count = 0; count < 5; count++) {
+	for (int count = 0; count < 5; count++) {
 		map_value[1] = map_value[1] | mask2;
 		mask2 <<= 1;
+	}
+
+	for(int i = BLOCK_SIZE / 8; i < BLOCK_SIZE; i++) {
+		u8 mask3 = 1;
+		for(int count = 0; count < 8; count++) {
+			map_value[i] = map_value[i] | mask3;
+			mask3 >>= 1;
+		}
 	}
 
 
@@ -436,11 +443,11 @@ void write_inode_table(int fd) {
 	hello_inode.i_dtime = 0;
 	hello_inode.i_gid = 1000;
 	hello_inode.i_links_count = 1;
-	hello_inode.i_blocks = 2;
-	hello_inode.i_block[0] = "hello-world";
+	hello_inode.i_blocks = 0;
+	char *s = "hello-world";
+	size_t len = strlen(s);
+	memcpy(hello_inode.i_block, s, len);
 	write_inode(fd, HELLO_INO, &hello_inode);
-
-
 }
 
 void write_root_dir_block(int fd)
@@ -461,10 +468,14 @@ void write_root_dir_block(int fd)
 	bytes_remaining -= current_entry.rec_len;
 
 	struct ext2_dir_entry parent_entry = {0};
-	dir_entry_set(parent_entry, EXT2_BAD_INO, "..");
+	dir_entry_set(parent_entry, EXT2_ROOT_INO, "..");
 	dir_entry_write(parent_entry, fd);
 
 	bytes_remaining -= parent_entry.rec_len;
+
+	struct ext2_dir_entry lost_and_found_entry = {0};
+	dir_entry_set(lost_and_found_entry, LOST_AND_FOUND_INO, "lost+found");
+	dir_entry_write(lost_and_found_entry, fd);
 
 	struct ext2_dir_entry hello_world_entry = {0};
 	dir_entry_set(hello_world_entry, HELLO_WORLD_INO, "hello-world");
@@ -473,7 +484,7 @@ void write_root_dir_block(int fd)
 	bytes_remaining -= hello_world_entry.rec_len;
 
 	struct ext2_dir_entry hello_entry = {0};
-	dir_entry_set(hello_entry, HELLO_INO, "hello-world");
+	dir_entry_set(hello_entry, HELLO_INO, "hello");
 	dir_entry_write(hello_entry, fd);
 
 	bytes_remaining -= hello_entry.rec_len;
@@ -512,13 +523,14 @@ void write_lost_and_found_dir_block(int fd) {
 void write_hello_world_file_block(int fd)
 {
 	// TODO It's all yours
-	off_t off = BLOCK_OFFSET(HELLO_WORLD_INO);
+	off_t off = BLOCK_OFFSET(HELLO_WORLD_FILE_BLOCKNO);
 	off = lseek(fd, off, SEEK_SET);
 	if (off == -1) {
 		errno_exit("lseek");
 	}
-	char* s = "hello-world";
-	if(write(fd, s, strlen(s) != strlen(s))) {
+	char* s = "Hello world\n";
+	size_t len = strlen(s);
+	if(write(fd, s, len) != len) {
 		errno_exit("write");
 	}	
 }
