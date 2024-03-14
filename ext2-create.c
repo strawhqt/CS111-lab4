@@ -335,11 +335,12 @@ void write_inode_bitmap(int fd)
 		mask2 <<= 1;
 	}
 
-	for(int i = 16; i < BLOCK_SIZE; i++) {
+
+	for(int i = NUM_INODES / 8; i < BLOCK_SIZE; i++) {
 		u8 mask3 = 1;
 		for(int count = 0; count < 8; count++) {
 			map_value[i] = map_value[i] | mask3;
-			mask3 >>= 1;
+			mask3 <<= 1;
 		}
 	}
 
