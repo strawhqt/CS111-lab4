@@ -16,7 +16,7 @@ dumpe2fs cs111-base.img  # dumps the filesystem information to help debug
 fsck.ext2 cs111-base.img  # this will check that your filesystem is correct
 mkdir mnt   # create a directory to mnt your filesystem to
 sudo mount -o loop cs111-base.img mnt  # mount your filesystem , loop lets you use a file
-ls -aint mnt/  # list all files
+ls -ain mnt/  # list all files
 ```
 
 
